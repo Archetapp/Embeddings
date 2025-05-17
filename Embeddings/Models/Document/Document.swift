@@ -52,7 +52,10 @@ extension Document {
         
         // Non-persisted, computed property for the thumbnail
         var thumbnail: NSImage? {
-            guard let thumbnailURL = thumbnailURL else { return nil }
+            guard let thumbnailURL = thumbnailURL else { 
+                print("No thumbnail URL for document: \(name)")
+                return nil 
+            }
             
             // If this is a direct access to an image file (not our cached thumbnail), use security scope
             if fileType == .image && thumbnailURL == url {
@@ -65,6 +68,7 @@ extension Document {
                         didStartAccess = resolvedURL.startAccessingSecurityScopedResource()
                         // Use the resolved URL to load the image
                         if let image = NSImage(contentsOf: resolvedURL) {
+                            print("Loaded direct image thumbnail for: \(name)")
                             let thumbnailImage = image.thumbnailImage(maxSize: 800)
                             if didStartAccess {
                                 resolvedURL.stopAccessingSecurityScopedResource()
@@ -74,6 +78,7 @@ extension Document {
                         if didStartAccess {
                             resolvedURL.stopAccessingSecurityScopedResource()
                         }
+                        print("Failed to load direct image for: \(name)")
                         return nil
                     } catch {
                         print("Error resolving bookmark for thumbnail: \(error)")
@@ -86,8 +91,11 @@ extension Document {
             
             // For cached thumbnails or if security scope failed
             if let image = NSImage(contentsOf: thumbnailURL) {
+                print("Loaded cached thumbnail for: \(name) from \(thumbnailURL.lastPathComponent)")
                 return image.thumbnailImage(maxSize: 800)
             }
+            
+            print("Failed to load any thumbnail for: \(name)")
             return nil
         }
         

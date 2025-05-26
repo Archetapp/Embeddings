@@ -28,7 +28,7 @@ extension AppView {
                     .padding(6)
                     .background(Material.bar)
                     .cornerRadius(8)
-                    .onChange(of: documentViewModel.searchQuery) { newText in
+                    .onChange(of: documentViewModel.searchQuery) { _, newText in
                         // Cancel any previous debounce task
                         debounceTask?.cancel()
                         

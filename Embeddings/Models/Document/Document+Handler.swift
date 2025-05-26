@@ -221,7 +221,7 @@ extension Document {
         }
         
         private static func extractVideoMetadata(from url: URL, into metadata: inout [String: String]) async throws {
-            let asset = AVAsset(url: url)
+            let asset = AVURLAsset(url: url)
             
             // Get video duration
             let duration = try await asset.load(.duration)

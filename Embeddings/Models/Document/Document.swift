@@ -82,9 +82,6 @@ extension Document {
                         return nil
                     } catch {
                         print("Error resolving bookmark for thumbnail: \(error)")
-                        if didStartAccess {
-                            url.stopAccessingSecurityScopedResource()
-                        }
                     }
                 }
             }

@@ -11,7 +11,7 @@ class PlayerViewModel: ObservableObject {
         currentURL = url
         
         // Create asset with proper options for network access
-        let asset = AVAsset(url: url)
+        let asset = AVURLAsset(url: url)
         let playerItem = AVPlayerItem(asset: asset)
         
         // Create player and set it

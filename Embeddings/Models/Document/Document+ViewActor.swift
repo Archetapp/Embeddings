@@ -42,7 +42,11 @@ extension Document {
         }
         
         func addDocument(_ document: Document.Model) {
-            documents.append(document)
+            if !documents.contains(where: { $0.url.path == document.url.path }) {
+                documents.append(document)
+            } else {
+                print("Document already exists: \(document.name)")
+            }
         }
         
         func addDocumentFromURL(_ url: URL) async throws {
@@ -99,7 +103,7 @@ extension Document {
             )
             
             DispatchQueue.main.async {
-                self.documents.append(document)
+                self.addDocument(document)
                 self.isAnalyzingContent = false
                 
                 // Generate embedding using local models after a small delay
@@ -132,7 +136,11 @@ extension Document {
             
             if document.embedding == nil {
                 do {
-                    // Use fullText instead of just text to include metadata
+                    if document.summary == nil {
+                        let summary = try await Embedding.TextGenerationService.shared.summarizeDocument(document.text)
+                        document.summary = summary
+                    }
+                    
                     let embedding = try await embeddingService.generateEmbedding(for: document.fullText)
                     document.embedding = embedding
                     
@@ -167,25 +175,33 @@ extension Document {
                 let endIndex = min(i + batchSize, documentsNeedingEmbeddings.count)
                 let batch = Array(documentsNeedingEmbeddings[i..<endIndex])
                 
-                await withTaskGroup(of: (Int, [Float]?).self) { group in
+                await withTaskGroup(of: (Int, [Float]?, String?).self) { group in
                     for (index, document) in batch {
                         group.addTask {
                             do {
+                                var summary: String? = document.summary
+                                if summary == nil {
+                                    summary = try await Embedding.TextGenerationService.shared.summarizeDocument(document.text)
+                                }
+                                
                                 let embedding = try await self.embeddingService.generateEmbedding(for: document.fullText)
-                                return (index, embedding)
+                                return (index, embedding, summary)
                             } catch {
                                 print("Error generating embedding for \(document.name): \(error)")
-                                return (index, nil)
+                                return (index, nil, nil)
                             }
                         }
                     }
                     
                     // Collect results and update documents
-                    for await (index, embedding) in group {
+                    for await (index, embedding, summary) in group {
                         if let embedding = embedding {
                             await MainActor.run {
                                 var updatedDoc = self.documents[index]
                                 updatedDoc.embedding = embedding
+                                if let summary = summary {
+                                    updatedDoc.summary = summary
+                                }
                                 self.documents[index] = updatedDoc
                             }
                         }
@@ -218,13 +234,18 @@ extension Document {
                     self.searchEmbedding = nil
                     self.sortedResults = self.documents.filter {
                         $0.name.lowercased().contains(self.searchQuery.lowercased()) ||
-                        $0.text.lowercased().contains(self.searchQuery.lowercased())
+                        $0.text.lowercased().contains(self.searchQuery.lowercased()) ||
+                        ($0.summary?.lowercased().contains(self.searchQuery.lowercased()) ?? false)
                     }
                 }
                 return
             }
             
             do {
+                if !embeddingService.isModelLoaded {
+                    try await Embedding.MLXService.shared.loadEmbeddingModel()
+                }
+                
                 // First, enhance the search query using the text generation model
                 let enhancedQuery = try await embeddingService.enhanceSearchQuery(self.searchQuery)
                 print("Enhanced search query: \(enhancedQuery)")
@@ -244,7 +265,8 @@ extension Document {
                     self.searchEmbedding = nil
                     self.sortedResults = self.documents.filter {
                         $0.name.lowercased().contains(self.searchQuery.lowercased()) ||
-                        $0.text.lowercased().contains(self.searchQuery.lowercased())
+                        $0.text.lowercased().contains(self.searchQuery.lowercased()) ||
+                        ($0.summary?.lowercased().contains(self.searchQuery.lowercased()) ?? false)
                     }
                 }
             }

@@ -43,12 +43,9 @@ extension Document {
         let url: URL
         let fileType: Handler.FileType
         let metadata: [String: String]
-        
-        // Thumbnail URL instead of NSImage for Codable support
         let thumbnailURL: URL?
-        
-        // Security-scoped bookmark data for maintaining access to files
         let securityScopedBookmark: Data?
+        var summary: String?
         
         // Non-persisted, computed property for the thumbnail
         var thumbnail: NSImage? {
@@ -115,15 +112,18 @@ extension Document {
         
         // Full text with metadata for embedding
         var fullText: String {
+            if let summary = summary {
+                return "Metadata:\n\(metadataString)\nSummary:\n\(summary)"
+            }
             return "Metadata:\n\(metadataString)\nContent:\n\(text)"
         }
         
         // Codable implementation for FileType enum
         enum CodingKeys: String, CodingKey {
-            case id, name, text, embedding, url, fileType, thumbnailURL, securityScopedBookmark, metadata
+            case id, name, text, embedding, url, fileType, thumbnailURL, securityScopedBookmark, metadata, summary
         }
         
-        init(name: String, text: String, embedding: [Float]?, url: URL, fileType: Handler.FileType, thumbnailURL: URL? = nil, securityScopedBookmark: Data? = nil, metadata: [String: String] = [:]) {
+        init(name: String, text: String, embedding: [Float]?, url: URL, fileType: Handler.FileType, thumbnailURL: URL? = nil, securityScopedBookmark: Data? = nil, metadata: [String: String] = [:], summary: String? = nil) {
             self.id = .random()
             self.name = name
             self.text = text
@@ -133,6 +133,7 @@ extension Document {
             self.thumbnailURL = thumbnailURL
             self.securityScopedBookmark = securityScopedBookmark
             self.metadata = metadata
+            self.summary = summary
         }
         
         init(from decoder: Decoder) throws {
@@ -146,6 +147,7 @@ extension Document {
             thumbnailURL = try container.decodeIfPresent(URL.self, forKey: .thumbnailURL)
             securityScopedBookmark = try container.decodeIfPresent(Data.self, forKey: .securityScopedBookmark)
             metadata = try container.decodeIfPresent([String: String].self, forKey: .metadata) ?? [:]
+            summary = try container.decodeIfPresent(String.self, forKey: .summary)
         }
         
         func encode(to encoder: Encoder) throws {
@@ -159,6 +161,7 @@ extension Document {
             try container.encodeIfPresent(thumbnailURL, forKey: .thumbnailURL)
             try container.encodeIfPresent(securityScopedBookmark, forKey: .securityScopedBookmark)
             try container.encode(metadata, forKey: .metadata)
+            try container.encodeIfPresent(summary, forKey: .summary)
         }
         
         func hash(into hasher: inout Hasher) {
@@ -196,4 +199,4 @@ extension Document {
             }
         }
     }
-} 
+}

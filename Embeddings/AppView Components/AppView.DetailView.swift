@@ -28,6 +28,8 @@ extension AppView {
             
                     // Text Content
                     ContentSection(text: document.text)
+                    
+                    SummarySection(text: document.summary ?? "No Summary")
                 }
                 .padding()
             }

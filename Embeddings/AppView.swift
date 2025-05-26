@@ -230,6 +230,10 @@ struct AppView: View {
                                                   queue: .main) { _ in
                 isImporting = true
             }
+            
+            Task {
+                await loadModelsOnStartup()
+            }
         }
         .onDisappear {
             // Remove notification observer
@@ -237,6 +241,55 @@ struct AppView: View {
                                                     name: NSNotification.Name("ImportFiles"), 
                                                     object: nil)
         }
+    }
+    
+    private func loadModelsOnStartup() async {
+        print("Loading models on app startup...")
+        
+        // Load models concurrently
+        await withTaskGroup(of: Void.self) { group in
+            // Load embedding model
+            group.addTask {
+                do {
+                    try await Embedding.MLXService.shared.loadEmbeddingModel()
+                    print("Embedding model loaded successfully")
+                } catch {
+                    print("Failed to load embedding model: \(error)")
+                }
+            }
+            
+            // Load text generation model
+            group.addTask {
+                do {
+                    try await Embedding.TextGenerationService.shared.loadTextGenerationModel()
+                    print("Text generation model loaded successfully")
+                } catch {
+                    print("Failed to load text generation model: \(error)")
+                }
+            }
+            
+            // Load vision model
+            group.addTask {
+                do {
+                    try await Multimodal.MLXService.shared.loadVisionModel()
+                    print("Vision model loaded successfully")
+                } catch {
+                    print("Failed to load vision model: \(error)")
+                }
+            }
+            
+            // Load audio model
+            group.addTask {
+                do {
+                    try await Multimodal.MLXService.shared.loadAudioModel()
+                    print("Audio model loaded successfully")
+                } catch {
+                    print("Failed to load audio model: \(error)")
+                }
+            }
+        }
+        
+        print("Model loading completed")
     }
     
     private func processDroppedItems(_ providers: [NSItemProvider]) async {

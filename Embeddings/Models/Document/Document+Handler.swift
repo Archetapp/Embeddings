@@ -63,6 +63,13 @@ extension Document {
             UTType(filenameExtension: "rs")!,
             UTType(filenameExtension: "kt")!,
             UTType(filenameExtension: "scala")!,
+            UTType(filenameExtension: "sql")!,
+            UTType(filenameExtension: "r")!,
+            UTType(filenameExtension: "m")!,
+            UTType(filenameExtension: "pl")!,
+            UTType(filenameExtension: "lua")!,
+            UTType(filenameExtension: "vim")!,
+            UTType(filenameExtension: "el")!,
             
             // Markup and config files
             UTType(filenameExtension: "yaml")!,
@@ -84,6 +91,50 @@ extension Document {
             UTType(filenameExtension: "bat")!,
             UTType(filenameExtension: "cmd")!,
             
+            // Xcode and Apple specific files
+            UTType(filenameExtension: "entitlements")!,
+            UTType(filenameExtension: "plist")!,
+            UTType(filenameExtension: "xcstrings")!,
+            UTType(filenameExtension: "xctestplan")!,
+            UTType(filenameExtension: "xcprivacy")!,
+            
+            // Web and Node.js files
+            UTType(filenameExtension: "mjs")!,
+            UTType(filenameExtension: "jsx")!,
+            UTType(filenameExtension: "tsx")!,
+            UTType(filenameExtension: "vue")!,
+            UTType(filenameExtension: "svelte")!,
+            
+            // Container and deployment files
+            UTType(filenameExtension: "podfile")!,
+            UTType(filenameExtension: "gemfile")!,
+            UTType(filenameExtension: "rakefile")!,
+            UTType(filenameExtension: "makefile")!,
+            UTType(filenameExtension: "cmake")!,
+            UTType(filenameExtension: "gradle")!,
+            UTType(filenameExtension: "pom")!,
+            UTType(filenameExtension: "sbt")!,
+            
+            // Data and log files
+            UTType(filenameExtension: "log")!,
+            UTType(filenameExtension: "tsv")!,
+            UTType(filenameExtension: "ndjson")!,
+            UTType(filenameExtension: "jsonl")!,
+            
+            // License and documentation files (no extension)
+            UTType(filenameExtension: "license")!,
+            UTType(filenameExtension: "readme")!,
+            UTType(filenameExtension: "changelog")!,
+            UTType(filenameExtension: "authors")!,
+            UTType(filenameExtension: "contributors")!,
+            UTType(filenameExtension: "copying")!,
+            UTType(filenameExtension: "install")!,
+            UTType(filenameExtension: "news")!,
+            UTType(filenameExtension: "todo")!,
+            UTType(filenameExtension: "version")!,
+            UTType(filenameExtension: "history")!,
+            UTType(filenameExtension: "notice")!,
+            
             // Images
             .image,
             .jpeg,
@@ -91,34 +142,40 @@ extension Document {
             .tiff,
             .heic,
             .gif,
+            .webP,
+            UTType(filenameExtension: "svg")!,
             
             // Videos
             .movie,
             .video,
             .mpeg4Movie,
             .quickTimeMovie,
+            UTType(filenameExtension: "webm")!,
+            UTType(filenameExtension: "mkv")!,
+            UTType(filenameExtension: "avi")!,
+            UTType(filenameExtension: "wmv")!,
+            UTType(filenameExtension: "flv")!,
             
             // Audio
             .audio,
             .mp3,
             .wav,
             .aiff,
-            UTType(filenameExtension: "m4a")!
+            UTType(filenameExtension: "m4a")!,
+            UTType(filenameExtension: "flac")!,
+            UTType(filenameExtension: "ogg")!,
+            UTType(filenameExtension: "wma")!
         ]
         
         // Common text file extensions and names
         static let textFileExtensions: Set<String> = [
-            "txt", "text", "md", "markdown", "yaml", "yml", "json", "xml", "html", "htm", "css", "js", "ts",
-            "swift", "py", "java", "cpp", "c", "h", "hpp", "cs", "php", "rb", "go", "rs", "kt", "scala",
-            "csv", "tsv", "log", "conf", "config", "ini", "toml", "dockerfile", "gitignore", "readme",
-            "sh", "bash", "zsh", "fish", "ps1", "bat", "cmd", "sql", "r", "m", "pl", "lua", "vim", "el"
-        ]
-        
-        // Common text file names (without extensions)
-        static let textFileNames: Set<String> = [
-            "readme", "license", "changelog", "authors", "contributors", "copying", "install", "news",
-            "todo", "makefile", "dockerfile", "procfile", "gemfile", "rakefile", "requirements",
-            "package", "manifest", "build", "configure", "version", "history", "notice"
+            "txt", "text", "md", "markdown", "yaml", "yml", "json", "xml", "html", "htm", "css", "js", "ts", "mjs", "jsx", "tsx",
+            "swift", "py", "java", "cpp", "c", "h", "hpp", "cs", "php", "rb", "go", "rs", "kt", "scala", "sql", "r", "m", "pl", "lua", "vim", "el",
+            "csv", "tsv", "log", "conf", "config", "ini", "toml", "dockerfile", "gitignore", "readme", "license", 
+            "sh", "bash", "zsh", "fish", "ps1", "bat", "cmd", "plist", "entitlements", "xcstrings", "xctestplan", "xcprivacy",
+            "vue", "svelte", "podfile", "gemfile", "rakefile", "makefile", "cmake", "gradle", "pom", "sbt",
+            "ndjson", "jsonl", "changelog", "authors", "contributors", "copying", "install", "news", "todo", "version", "history", "notice",
+            "rules", "command"
         ]
         
         static func getFileType(for url: URL) -> FileType {
@@ -126,7 +183,7 @@ extension Document {
             let fileExtension = url.pathExtension.lowercased()
             
             // Check if it's a known text file by name or extension
-            if textFileNames.contains(fileName) || textFileExtensions.contains(fileExtension) {
+            if textFileExtensions.contains(fileName) || textFileExtensions.contains(fileExtension) {
                 return .text
             }
             

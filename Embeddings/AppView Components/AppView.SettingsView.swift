@@ -14,7 +14,7 @@ extension AppView {
         @State private var isLoadingVision = false
         @State private var isLoadingAudio = false
         @State private var selectedEmbeddingModel = "e5_mistral_7B_instruct"
-        @State private var selectedTextGenerationModel = "llama3_2_3B_text"
+        @State private var selectedTextGenerationModel = "gemma_2_2b_it_4bit"
         @State private var selectedVisionModel = "llama3_2_3B_vision"
         @State private var selectedAudioModel = "llama3_2_1B_audio"
         
@@ -37,6 +37,9 @@ extension AppView {
         ]
         
         let textGenerationModels = [
+            ("gemma_2_2b_it_4bit", "Gemma-2-2B-IT-4bit", "Smaller Google model (recommended)"),
+            ("gemma_2_9b_it_4bit", "Gemma-2-9B-IT-4bit", "Larger Google model"),
+            ("deepseek_r1_4bit", "DeepSeek-R1 4-bit", "Advanced reasoning model"),
             ("llama3_2_3B_text", "Llama 3.2 3B Text", "Query enhancement & generation"),
             ("llama3_2_1B_4bit", "Llama 3.2 1B (4-bit)", "Smaller, faster generation")
         ]
@@ -370,6 +373,16 @@ extension AppView {
                             .padding()
                         }
                         
+                        HStack {
+                            Button("Open Storage Folder") {
+                                openStorageFolder()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            
+                            Spacer()
+                        }
+                        
                         HStack(spacing: 12) {
                             Button("Load All Models") {
                                 loadAllModels()
@@ -599,13 +612,31 @@ extension AppView {
                                 // Try to create bookmark while we have access
                                 do {
                                     bookmark = try fileURL.bookmarkData(
-                                        options: [.minimalBookmark, .securityScopeAllowOnlyReadAccess],
+                                        options: [.securityScopeAllowOnlyReadAccess],
                                         includingResourceValuesForKeys: nil,
                                         relativeTo: nil
                                     )
                                 } catch {
-                                    print("Failed to create bookmark for \(fileURL.lastPathComponent): \(error)")
-                                    // Continue without bookmark
+                                    // If security scoped bookmark fails, try minimal bookmark
+                                    do {
+                                        bookmark = try fileURL.bookmarkData(
+                                            options: .minimalBookmark,
+                                            includingResourceValuesForKeys: nil,
+                                            relativeTo: nil
+                                        )
+                                    } catch {
+                                        // Try app-scoped bookmark as final fallback
+                                        do {
+                                            bookmark = try fileURL.bookmarkData(
+                                                options: [],
+                                                includingResourceValuesForKeys: nil,
+                                                relativeTo: nil
+                                            )
+                                        } catch {
+                                            print("All bookmark creation methods failed for \(fileURL.lastPathComponent): \(error)")
+                                            // Continue without bookmark
+                                        }
+                                    }
                                 }
                                 
                                 let text = try await Document.Handler.extractText(from: fileURL)
@@ -698,7 +729,7 @@ extension AppView {
                 } catch {
                     print("Failed to load text generation model: \(error)")
                     await MainActor.run {
-                        self.textGenerationModelStatus = "Failed"
+                        self.textGenerationModelStatus = "Failed: \(error.localizedDescription)"
                         self.isLoadingTextGeneration = false
                     }
                 }
@@ -783,6 +814,23 @@ extension AppView {
             if Multimodal.Service.shared.isAudioModelLoaded {
                 audioModelStatus = "Loaded"
             }
+        }
+        
+        private func openStorageFolder() {
+            let fileManager = FileManager.default
+            guard let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+                print("Could not find Application Support directory")
+                return
+            }
+            
+            let appURL = appSupportURL.appendingPathComponent(Bundle.main.bundleIdentifier ?? "Embeddings")
+            let documentsURL = appURL.appendingPathComponent("Documents")
+            
+            // Create directory if it doesn't exist
+            try? fileManager.createDirectory(at: documentsURL, withIntermediateDirectories: true)
+            
+            // Open in Finder
+            NSWorkspace.shared.open(documentsURL)
         }
     }
 }

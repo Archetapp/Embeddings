@@ -38,6 +38,7 @@ extension Embedding {
             return mlxService.cosineSimilarity(between: embedding1, and: embedding2)
         }
         
+        @MainActor
         var isModelLoaded: Bool {
             return mlxService.isModelLoaded && textGenerationService.isModelLoaded
         }

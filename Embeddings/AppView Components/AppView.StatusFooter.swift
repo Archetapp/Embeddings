@@ -38,11 +38,11 @@ extension AppView {
                         .foregroundColor(.primary)
                         .simpleButtonStyle()
                 }
-                .disabled(documentViewModel.documents.isEmpty || documentViewModel.apiKey.isEmpty || documentViewModel.isGeneratingEmbeddings)
-                .opacity(documentViewModel.documents.isEmpty || documentViewModel.apiKey.isEmpty || documentViewModel.isGeneratingEmbeddings ? 0.5 : 1)
+                .disabled(documentViewModel.documents.isEmpty || documentViewModel.isGeneratingEmbeddings)
+                .opacity(documentViewModel.documents.isEmpty || documentViewModel.isGeneratingEmbeddings ? 0.5 : 1)
                 .padding(.horizontal)
             }
             .padding(.vertical)
         }
     }
-} 
+}

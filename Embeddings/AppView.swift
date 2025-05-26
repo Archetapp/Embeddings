@@ -5,8 +5,6 @@ import AVKit
 struct AppView: View {
     @StateObject private var documentViewModel = Document.ViewActor()
     @State private var isImporting = false
-    @State private var showingAPIKeyAlert = false
-    @State private var tempAPIKey = ""
     @State private var selectedDocument: Document.Model?
     @StateObject private var playerViewModel = PlayerViewModel()
     @State private var isDropTargeted = false
@@ -85,10 +83,8 @@ struct AppView: View {
                 // Process the dropped items
                 await processDroppedItems(providers)
                 
-                // Generate embeddings if API key is set
-                if !documentViewModel.apiKey.isEmpty {
-                    await documentViewModel.generateEmbeddings()
-                }
+                // Generate embeddings using local MLX models
+                await documentViewModel.generateEmbeddings()
             }
             return true
         }
@@ -220,32 +216,14 @@ struct AppView: View {
                         }
                     }
                     
-                    // Generate embeddings if API key is set
-                    if !documentViewModel.apiKey.isEmpty {
-                        await documentViewModel.generateEmbeddings()
-                    }
+                    // Generate embeddings using local MLX models
+                    await documentViewModel.generateEmbeddings()
                 }
             } catch {
                 print("Error importing files: \(error)")
             }
         }
-        .alert("OpenAI API Key", isPresented: $showingAPIKeyAlert) {
-            TextField("Enter your API key", text: $tempAPIKey)
-                .foregroundColor(.primary)
-            
-            Button("Save") {
-                documentViewModel.apiKey = tempAPIKey
-            }
-            
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Please enter your OpenAI API key to generate embeddings.")
-        }
         .onAppear {
-            if documentViewModel.apiKey.isEmpty {
-                showingAPIKeyAlert = true
-            }
-            
             // Register for Import Files notification from menu
             NotificationCenter.default.addObserver(forName: NSNotification.Name("ImportFiles"), 
                                                   object: nil, 

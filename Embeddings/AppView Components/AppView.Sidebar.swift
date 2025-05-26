@@ -7,8 +7,6 @@ extension AppView {
         @Binding var selectedDocument: Document.Model?
         @ObservedObject var playerViewModel: PlayerViewModel
         @Binding var isImporting: Bool
-        @State private var showingAPIKeyAlert = false
-        @State private var tempAPIKey = ""
         
         var body: some View {
             VStack(spacing: 0) {
@@ -18,11 +16,9 @@ extension AppView {
                     isImporting: $isImporting
                 )
                 
-                // API Key and Search
+                // Search Bar
                 SearchBar(
-                    documentViewModel: documentViewModel,
-                    showingAPIKeyAlert: $showingAPIKeyAlert,
-                    tempAPIKey: $tempAPIKey
+                    documentViewModel: documentViewModel
                 )
                 
                 // Document List
@@ -35,18 +31,6 @@ extension AppView {
                 // Status and Control Buttons
                 StatusFooter(documentViewModel: documentViewModel)
             }
-            .alert("OpenAI API Key", isPresented: $showingAPIKeyAlert) {
-                TextField("Enter your API key", text: $tempAPIKey)
-                    .foregroundColor(.primary)
-                
-                Button("Save") {
-                    documentViewModel.apiKey = tempAPIKey
-                }
-                
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Please enter your OpenAI API key to generate embeddings.")
-            }
         }
     }
-} 
+}

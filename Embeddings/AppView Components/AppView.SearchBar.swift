@@ -3,26 +3,11 @@ import SwiftUI
 extension AppView {
     struct SearchBar: View {
         @ObservedObject var documentViewModel: Document.ViewActor
-        @Binding var showingAPIKeyAlert: Bool
-        @Binding var tempAPIKey: String
         @State private var debouncedText: String = ""
         @State private var debounceTask: Task<Void, Never>?
         
         var body: some View {
             HStack {
-                Button(action: {
-                    tempAPIKey = documentViewModel.apiKey
-                    showingAPIKeyAlert = true
-                }) {
-                    Label("API Key", systemImage: "key.fill")
-                        .foregroundColor(.primary)
-                        .simpleButtonStyle()
-                }
-                .buttonStyle(.plain)
-                .padding(.leading)
-                
-                Spacer()
-                
                 TextField("Search...", text: $documentViewModel.searchQuery)
                     .textFieldStyle(.plain)
                     .padding(6)
@@ -50,9 +35,9 @@ extension AppView {
                     }
                     .background(Material.ultraThinMaterial)
                     .cornerRadius(8)
-                    .padding(.trailing)
+                    .padding(.horizontal)
             }
             .padding(.bottom)
         }
     }
-} 
+}

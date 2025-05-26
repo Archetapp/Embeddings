@@ -11,6 +11,7 @@
 		26DFCEAC2DD90B5F00DD3420 /* FileProviderKit in Frameworks */ = {isa = PBXBuildFile; productRef = 26DFCEAB2DD90B5F00DD3420 /* FileProviderKit */; };
 		26DFCEAE2DD90B5F00DD3420 /* UUIDv6 in Frameworks */ = {isa = PBXBuildFile; productRef = 26DFCEAD2DD90B5F00DD3420 /* UUIDv6 */; };
 		26DFCFA72DD9106B00DD3420 /* SwiftUIX in Frameworks */ = {isa = PBXBuildFile; productRef = 26DFCFA62DD9106B00DD3420 /* SwiftUIX */; };
+		26F35F2A2DE4CCB400E51B44 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 26F35F292DE4CCB400E51B44 /* MLX */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,7 @@
 				26DFCEAE2DD90B5F00DD3420 /* UUIDv6 in Frameworks */,
 				26DFCEAC2DD90B5F00DD3420 /* FileProviderKit in Frameworks */,
 				26DFCEAA2DD90B5F00DD3420 /* CorePersistence in Frameworks */,
+				26F35F2A2DE4CCB400E51B44 /* MLX in Frameworks */,
 				26DFCFA72DD9106B00DD3420 /* SwiftUIX in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -80,6 +82,7 @@
 				26DFCEAB2DD90B5F00DD3420 /* FileProviderKit */,
 				26DFCEAD2DD90B5F00DD3420 /* UUIDv6 */,
 				26DFCFA62DD9106B00DD3420 /* SwiftUIX */,
+				26F35F292DE4CCB400E51B44 /* MLX */,
 			);
 			productName = Embeddings;
 			productReference = 26DFCE8D2DD8FF6600DD3420 /* Embeddings.app */;
@@ -112,6 +115,7 @@
 			packageReferences = (
 				26DFCEA82DD90B5F00DD3420 /* XCRemoteSwiftPackageReference "CorePersistence" */,
 				26DFCFA52DD9106B00DD3420 /* XCRemoteSwiftPackageReference "SwiftUIX" */,
+				26F35F282DE4CCB400E51B44 /* XCRemoteSwiftPackageReference "mlx-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 26DFCE8E2DD8FF6600DD3420 /* Products */;
@@ -378,6 +382,14 @@
 				minimumVersion = 0.2.4;
 			};
 		};
+		26F35F282DE4CCB400E51B44 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.25.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -400,6 +412,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 26DFCFA52DD9106B00DD3420 /* XCRemoteSwiftPackageReference "SwiftUIX" */;
 			productName = SwiftUIX;
+		};
+		26F35F292DE4CCB400E51B44 /* MLX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 26F35F282DE4CCB400E51B44 /* XCRemoteSwiftPackageReference "mlx-swift" */;
+			productName = MLX;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

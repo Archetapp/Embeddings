@@ -44,11 +44,45 @@ extension Document {
             .xml,
             .propertyList,
             .json,
+            .text,
+            
+            // Programming and markup files
+            UTType(filenameExtension: "swift")!,
+            UTType(filenameExtension: "js")!,
+            UTType(filenameExtension: "ts")!,
+            UTType(filenameExtension: "py")!,
+            UTType(filenameExtension: "java")!,
+            UTType(filenameExtension: "cpp")!,
+            UTType(filenameExtension: "c")!,
+            UTType(filenameExtension: "h")!,
+            UTType(filenameExtension: "hpp")!,
+            UTType(filenameExtension: "cs")!,
+            UTType(filenameExtension: "php")!,
+            UTType(filenameExtension: "rb")!,
+            UTType(filenameExtension: "go")!,
+            UTType(filenameExtension: "rs")!,
+            UTType(filenameExtension: "kt")!,
+            UTType(filenameExtension: "scala")!,
+            
+            // Markup and config files
             UTType(filenameExtension: "yaml")!,
+            UTType(filenameExtension: "yml")!,
             UTType(filenameExtension: "md")!,
             UTType(filenameExtension: "markdown")!,
             UTType(filenameExtension: "csv")!,
-            .text,
+            UTType(filenameExtension: "toml")!,
+            UTType(filenameExtension: "ini")!,
+            UTType(filenameExtension: "conf")!,
+            UTType(filenameExtension: "config")!,
+            UTType(filenameExtension: "dockerfile")!,
+            UTType(filenameExtension: "gitignore")!,
+            UTType(filenameExtension: "sh")!,
+            UTType(filenameExtension: "bash")!,
+            UTType(filenameExtension: "zsh")!,
+            UTType(filenameExtension: "fish")!,
+            UTType(filenameExtension: "ps1")!,
+            UTType(filenameExtension: "bat")!,
+            UTType(filenameExtension: "cmd")!,
             
             // Images
             .image,
@@ -72,33 +106,83 @@ extension Document {
             UTType(filenameExtension: "m4a")!
         ]
         
+        // Common text file extensions and names
+        static let textFileExtensions: Set<String> = [
+            "txt", "text", "md", "markdown", "yaml", "yml", "json", "xml", "html", "htm", "css", "js", "ts",
+            "swift", "py", "java", "cpp", "c", "h", "hpp", "cs", "php", "rb", "go", "rs", "kt", "scala",
+            "csv", "tsv", "log", "conf", "config", "ini", "toml", "dockerfile", "gitignore", "readme",
+            "sh", "bash", "zsh", "fish", "ps1", "bat", "cmd", "sql", "r", "m", "pl", "lua", "vim", "el"
+        ]
+        
+        // Common text file names (without extensions)
+        static let textFileNames: Set<String> = [
+            "readme", "license", "changelog", "authors", "contributors", "copying", "install", "news",
+            "todo", "makefile", "dockerfile", "procfile", "gemfile", "rakefile", "requirements",
+            "package", "manifest", "build", "configure", "version", "history", "notice"
+        ]
+        
         static func getFileType(for url: URL) -> FileType {
-            guard let contentType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType else {
-                return .unknown
+            let fileName = url.lastPathComponent.lowercased()
+            let fileExtension = url.pathExtension.lowercased()
+            
+            // Check if it's a known text file by name or extension
+            if textFileNames.contains(fileName) || textFileExtensions.contains(fileExtension) {
+                return .text
             }
             
-            if contentType.conforms(to: .text) || 
-               contentType.conforms(to: .plainText) || 
-               contentType.conforms(to: .html) || 
-               contentType.conforms(to: .xml) || 
-               contentType.conforms(to: .propertyList) || 
-               contentType.conforms(to: .json) || 
-               contentType.identifier.contains("yaml") || 
-               contentType.identifier.contains("md") || 
-               contentType.identifier.contains("csv") || 
-               contentType.conforms(to: .rtf) {
+            // Check by content type
+            if let contentType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType {
+                if contentType.conforms(to: .text) || 
+                   contentType.conforms(to: .plainText) || 
+                   contentType.conforms(to: .html) || 
+                   contentType.conforms(to: .xml) || 
+                   contentType.conforms(to: .propertyList) || 
+                   contentType.conforms(to: .json) ||
+                   contentType.conforms(to: .rtf) {
+                    return .text
+                } else if contentType.conforms(to: .pdf) {
+                    return .pdf
+                } else if contentType.conforms(to: .image) {
+                    return .image
+                } else if contentType.conforms(to: .video) || contentType.conforms(to: .movie) {
+                    return .video
+                } else if contentType.conforms(to: .audio) {
+                    return .audio
+                }
+            }
+            
+            // Fallback: if we think it might be text, try to read it
+            if couldBeTextFile(url: url) {
                 return .text
-            } else if contentType.conforms(to: .pdf) {
-                return .pdf
-            } else if contentType.conforms(to: .image) {
-                return .image
-            } else if contentType.conforms(to: .video) || contentType.conforms(to: .movie) {
-                return .video
-            } else if contentType.conforms(to: .audio) {
-                return .audio
             }
             
             return .unknown
+        }
+        
+        // Helper to detect if a file might be text-based
+        private static func couldBeTextFile(url: URL) -> Bool {
+            // Check if file is small enough to potentially be text
+            guard let fileSize = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                  fileSize < 50_000_000 else { // 50MB limit
+                return false
+            }
+            
+            // Try to read first few bytes to check for text content
+            guard let fileHandle = try? FileHandle(forReadingFrom: url) else {
+                return false
+            }
+            defer { fileHandle.closeFile() }
+            
+            let sampleData = fileHandle.readData(ofLength: 512)
+            guard !sampleData.isEmpty else { return false }
+            
+            // Check if sample contains mostly printable ASCII characters
+            let printableCount = sampleData.filter { byte in
+                (byte >= 32 && byte <= 126) || byte == 9 || byte == 10 || byte == 13 // printable ASCII, tab, LF, CR
+            }.count
+            
+            let printableRatio = Double(printableCount) / Double(sampleData.count)
+            return printableRatio > 0.7 // If 70%+ is printable, likely text
         }
         
         static func extractMetadata(from url: URL) async throws -> [String: String] {
@@ -172,6 +256,14 @@ extension Document {
         }
         
         private static func extractImageMetadata(from url: URL, into metadata: inout [String: String]) async throws {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
             guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil) else {
                 return
             }
@@ -221,6 +313,14 @@ extension Document {
         }
         
         private static func extractVideoMetadata(from url: URL, into metadata: inout [String: String]) async throws {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
             let asset = AVURLAsset(url: url)
             
             // Get video duration
@@ -271,6 +371,14 @@ extension Document {
         }
         
         private static func extractAudioMetadata(from url: URL, into metadata: inout [String: String]) async throws {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
             let asset = AVAsset(url: url)
             
             // Get audio duration
@@ -335,6 +443,14 @@ extension Document {
         }
         
         private static func extractPDFMetadata(from url: URL, into metadata: inout [String: String]) {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
             guard let pdfDocument = PDFDocument(url: url) else {
                 return
             }
@@ -395,11 +511,83 @@ extension Document {
             case .audio:
                 return try await extractTextFromAudio(url: url)
             case .unknown:
+                // Try to process as text first if it might be a text file
+                if couldBeTextFile(url: url) {
+                    do {
+                        return try extractTextFromTextFile(url: url)
+                    } catch {
+                        // If text extraction fails, throw the original error
+                        throw DocumentError.unsupportedFileType
+                    }
+                }
                 throw DocumentError.unsupportedFileType
             }
         }
         
+        private static func extractTextFromTextFile(url: URL) throws -> String {
+            // Try multiple encodings in order of preference
+            let encodings: [String.Encoding] = [.utf8, .utf16, .ascii, .isoLatin1, .macOSRoman, .windowsCP1252]
+            
+            for encoding in encodings {
+                do {
+                    let text = try String(contentsOf: url, encoding: encoding)
+                    // Basic validation: ensure it's not empty and has reasonable content
+                    if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        return text
+                    }
+                } catch {
+                    // Continue to next encoding
+                    continue
+                }
+            }
+            
+            // If all encodings fail, try reading as raw data and converting
+            do {
+                let data = try Data(contentsOf: url)
+                
+                // If it's a small file, try to detect encoding
+                if data.count < 1_000_000 { // 1MB limit for encoding detection
+                    if let detectedString = String(data: data, encoding: .utf8) {
+                        return detectedString
+                    }
+                    
+                    // Try other common encodings
+                    for encoding in encodings.dropFirst() {
+                        if let detectedString = String(data: data, encoding: encoding) {
+                            return detectedString
+                        }
+                    }
+                }
+                
+                // Last resort: convert non-UTF8 bytes to readable representation
+                let utf8String = data.compactMap { byte in
+                    if byte >= 32 && byte <= 126 || byte == 9 || byte == 10 || byte == 13 {
+                        let scalar = UnicodeScalar(byte)
+                        return String(Character(scalar))
+                    }
+                    return nil
+                }.joined()
+                
+                if !utf8String.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty {
+                    return utf8String
+                }
+                
+            } catch {
+                throw DocumentError.failedToReadData
+            }
+            
+            throw DocumentError.textExtractionFailed
+        }
+        
         private static func extractTextFromPDF(url: URL) throws -> String {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
             guard let pdfDocument = PDFDocument(url: url) else {
                 throw DocumentError.failedToReadData
             }
@@ -420,44 +608,15 @@ extension Document {
             return text
         }
         
-        private static func extractTextFromTextFile(url: URL) throws -> String {
-            do {
-                return try String(contentsOf: url, encoding: .utf8)
-            } catch {
-                // Try another encoding if UTF-8 fails
-                do {
-                    return try String(contentsOf: url, encoding: .ascii)
-                } catch {
-                    throw DocumentError.textExtractionFailed
+        private static func extractTextFromImage(url: URL) async throws -> String {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
                 }
             }
-        }
-        
-        private static func extractTextFromRTF(url: URL) throws -> String {
-            guard let data = try? Data(contentsOf: url) else {
-                throw DocumentError.failedToReadData
-            }
             
-            guard let attributedString = try? NSAttributedString(data: data, options: [.documentType: NSAttributedString.DocumentType.rtf], documentAttributes: nil) else {
-                throw DocumentError.textExtractionFailed
-            }
-            
-            return attributedString.string
-        }
-        
-        private static func extractTextFromHTML(url: URL) throws -> String {
-            guard let data = try? Data(contentsOf: url) else {
-                throw DocumentError.failedToReadData
-            }
-            
-            guard let attributedString = try? NSAttributedString(data: data, options: [.documentType: NSAttributedString.DocumentType.html], documentAttributes: nil) else {
-                throw DocumentError.textExtractionFailed
-            }
-            
-            return attributedString.string
-        }
-        
-        private static func extractTextFromImage(url: URL) async throws -> String {
             // First try to use Vision API to recognize text in the image
             let textFromOCR = try await performOCR(on: url)
             
@@ -472,6 +631,14 @@ extension Document {
         }
         
         private static func performOCR(on url: URL) async throws -> String {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
             guard let cgImage = loadCGImage(from: url) else {
                 return ""
             }
@@ -492,6 +659,14 @@ extension Document {
         }
         
         private static func loadCGImage(from url: URL) -> CGImage? {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
             guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
                   let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
                 return nil
@@ -505,13 +680,42 @@ extension Document {
         }
         
         private static func extractTextFromVideo(url: URL) async throws -> String {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
             // Use the new video analysis function that handles both image and audio in one call
             let result = try await Multimodal.Service.shared.analyzeVideo(url: url)
             
             return "Video visual content: \(result.imageDescription)\n\nAudio transcription: \(result.audioTranscription)"
         }
         
+        private static func extractTextFromAudio(url: URL) async throws -> String {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
+            // Using MultimodalService for audio analysis/transcription
+            return try await Multimodal.Service.shared.analyzeAudio(url: url)
+        }
+        
         static func extractVideoThumbnail(url: URL) async throws -> NSImage {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
             let asset = AVAsset(url: url)
             let imageGenerator = AVAssetImageGenerator(asset: asset)
             imageGenerator.appliesPreferredTrackTransform = true
@@ -530,13 +734,16 @@ extension Document {
         }
         
         private static func extractAudioFromVideo(url: URL) async throws -> String {
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            
             // Use the audio extraction and transcription from Multimodal service
             return try await Multimodal.Service.shared.analyzeAudio(url: url)
         }
-        
-        private static func extractTextFromAudio(url: URL) async throws -> String {
-            // Using MultimodalService for audio analysis/transcription
-            return try await Multimodal.Service.shared.analyzeAudio(url: url)
-        }
     }
-} 
+}

@@ -4,6 +4,7 @@ extension AppView {
     struct SidebarHeader: View {
         @ObservedObject var documentViewModel: Document.ViewActor
         @Binding var isImporting: Bool
+        @State private var showingSettings = false
         
         var body: some View {
             HStack {
@@ -13,6 +14,16 @@ extension AppView {
                     .padding(.leading)
                 
                 Spacer()
+                
+                Button(action: {
+                    showingSettings = true
+                }) {
+                    Image(systemName: "gearshape.fill")
+                        .foregroundColor(.primary)
+                        .padding(8)
+                        .background(Material.ultraThinMaterial)
+                        .cornerRadius(8)
+                }
                 
                 Button(action: {
                     documentViewModel.clearAllDocuments()
@@ -39,6 +50,9 @@ extension AppView {
             }
             .padding(.top)
             .padding(.bottom, 8)
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+            }
         }
     }
-} 
+}

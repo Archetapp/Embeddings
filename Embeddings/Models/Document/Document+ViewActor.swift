@@ -18,37 +18,31 @@ extension Document {
         @Published var sortedResults: IdentifierIndexingArrayOf<Document.Model> = []
         @Published var isGeneratingEmbeddings: Bool = false
         @Published var isAnalyzingContent: Bool = false
-        @Published var apiKey: String = "" {
-            didSet {
-                embeddingService.setAPIKey(apiKey)
-                multimodalService.setAPIKey(apiKey)
-                UserDefaults.standard.set(apiKey, forKey: "openai_api_key")
-                
-                // Generate embeddings for all documents when API key is set
-                if !apiKey.isEmpty && !documents.isEmpty {
-                    Task {
-                        await generateEmbeddings()
-                    }
-                }
-            }
-        }
         
         let embeddingService = Embedding.Service()
         private let multimodalService = Multimodal.Service.shared
         
         init() {
-            if let savedKey = UserDefaults.standard.string(forKey: "openai_api_key") {
-                apiKey = savedKey
-                embeddingService.setAPIKey(savedKey)
-                multimodalService.setAPIKey(savedKey)
+            // Listen for document notifications from folder indexing
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("AddDocument"),
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                if let document = notification.object as? Document.Model {
+                    self?.addDocument(document)
+                }
             }
+            
+            // Don't initialize models here - let them be initialized lazily when first needed
+        }
+        
+        deinit {
+            NotificationCenter.default.removeObserver(self)
         }
         
         func addDocument(_ document: Document.Model) {
             documents.append(document)
-            
-            // We no longer automatically generate embeddings for each document individually
-            // since we'll batch process them after all documents are added
         }
         
         func addDocumentFromURL(_ url: URL) async throws {
@@ -69,39 +63,27 @@ extension Document {
                 }
             }
             
-            // Extract text content
+            // Extract text content and metadata
             let text = try await Document.Handler.extractText(from: url)
-            
-            // Extract metadata
             let metadata = try await Document.Handler.extractMetadata(from: url)
             
-            // Handle thumbnails for multimedia files
+            // Generate thumbnail for supported media types
             var thumbnailURL: URL? = nil
-            
-            if fileType == .image {
-                // For images, we can use the original file as the thumbnail
-                thumbnailURL = url
-            } else if fileType == .video {
-                // For videos, extract a thumbnail and save it to a temporary file
-                if let thumbnail = try? await Document.Handler.extractVideoThumbnail(url: url) {
-                    // Save the thumbnail to the app's documents directory
-                    let thumbnailsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                        .appendingPathComponent("Thumbnails", isDirectory: true)
+            if fileType == .video {
+                do {
+                    let thumbnail = try await Document.Handler.extractVideoThumbnail(url: url)
+                    let thumbnailsDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("thumbnails")
+                    try FileManager.default.createDirectory(at: thumbnailsDir, withIntermediateDirectories: true)
                     
-                    // Create the thumbnails directory if it doesn't exist
-                    try? FileManager.default.createDirectory(at: thumbnailsDir, withIntermediateDirectories: true)
-                    
-                    // Generate a unique filename for the thumbnail
-                    let thumbnailFileName = UUID().uuidString + ".jpeg"
-                    let thumbnailPath = thumbnailsDir.appendingPathComponent(thumbnailFileName)
-                    
-                    // Convert NSImage to JPEG data and save to file
+                    let thumbnailPath = thumbnailsDir.appendingPathComponent("\(UUID().uuidString).jpg")
                     if let tiffData = thumbnail.tiffRepresentation,
                        let bitmapRep = NSBitmapImageRep(data: tiffData),
                        let jpegData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.8]) {
                         try jpegData.write(to: thumbnailPath)
                         thumbnailURL = thumbnailPath
                     }
+                } catch {
+                    print("Failed to generate video thumbnail: \(error)")
                 }
             }
             
@@ -120,9 +102,9 @@ extension Document {
                 self.documents.append(document)
                 self.isAnalyzingContent = false
                 
-                // Generate embedding
-                if !self.apiKey.isEmpty {
-                    Task {
+                // Generate embedding using local models after a small delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    Task { @MainActor in
                         await self.generateEmbeddingForDocument(at: self.documents.count - 1)
                     }
                 }
@@ -140,9 +122,11 @@ extension Document {
         }
         
         private func generateEmbeddingForDocument(at index: Int) async {
-            guard !apiKey.isEmpty, index >= 0 && index < documents.count else { return }
+            guard index >= 0 && index < documents.count else { return }
             
-            isGeneratingEmbeddings = true
+            await MainActor.run {
+                isGeneratingEmbeddings = true
+            }
             
             var document = documents[index]
             
@@ -152,55 +136,76 @@ extension Document {
                     let embedding = try await embeddingService.generateEmbedding(for: document.fullText)
                     document.embedding = embedding
                     
-                    self.documents[index] = document
-                    self.isGeneratingEmbeddings = false
-                    self.updateSortedResults()
+                    await MainActor.run {
+                        self.documents[index] = document
+                        self.isGeneratingEmbeddings = false
+                        self.updateSortedResults()
+                    }
                 } catch {
                     print("Error generating embedding for \(document.name): \(error)")
-                    self.isGeneratingEmbeddings = false
+                    await MainActor.run {
+                        self.isGeneratingEmbeddings = false
+                    }
                 }
             }
         }
         
         func generateEmbeddings() async {
-            guard !apiKey.isEmpty else { return }
+            await MainActor.run {
+                isGeneratingEmbeddings = true
+            }
             
-            isGeneratingEmbeddings = true
+            // Get documents that need embeddings
+            let documentsNeedingEmbeddings = documents.enumerated().compactMap { index, document in
+                document.embedding == nil ? (index, document) : nil
+            }
             
-            // Use async let to process documents concurrently
-            await withTaskGroup(of: (Int, [Float]?).self) { group in
-                for i in 0..<documents.count where documents[i].embedding == nil {
-                    group.addTask {
-                        do {
-                            // Use fullText instead of just text to include metadata
-                            let embedding = try await self.embeddingService.generateEmbedding(for: self.documents[i].fullText)
-                            return (i, embedding)
-                        } catch {
-                            print("Error generating embedding for \(await self.documents[i].name): \(error)")
-                            return (i, nil)
+            // Process documents in batches concurrently
+            let batchSize = 5 // Process 5 documents at a time
+            
+            for i in stride(from: 0, to: documentsNeedingEmbeddings.count, by: batchSize) {
+                let endIndex = min(i + batchSize, documentsNeedingEmbeddings.count)
+                let batch = Array(documentsNeedingEmbeddings[i..<endIndex])
+                
+                await withTaskGroup(of: (Int, [Float]?).self) { group in
+                    for (index, document) in batch {
+                        group.addTask {
+                            do {
+                                let embedding = try await self.embeddingService.generateEmbedding(for: document.fullText)
+                                return (index, embedding)
+                            } catch {
+                                print("Error generating embedding for \(document.name): \(error)")
+                                return (index, nil)
+                            }
+                        }
+                    }
+                    
+                    // Collect results and update documents
+                    for await (index, embedding) in group {
+                        if let embedding = embedding {
+                            await MainActor.run {
+                                var updatedDoc = self.documents[index]
+                                updatedDoc.embedding = embedding
+                                self.documents[index] = updatedDoc
+                            }
                         }
                     }
                 }
                 
-                // Process results as they complete
-                for await (index, embedding) in group {
-                    if let embedding = embedding {
-                        var updatedDoc = self.documents[index]
-                        updatedDoc.embedding = embedding
-                        self.documents[index] = updatedDoc
-                    }
-                }
+                // Small delay between batches to prevent overwhelming the system
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
             }
             
-            isGeneratingEmbeddings = false
-            updateSortedResults()
+            await MainActor.run {
+                isGeneratingEmbeddings = false
+                updateSortedResults()
+            }
         }
         
         func performSearch() async {
             // Clear results if search is empty
-            guard !searchQuery.isEmpty, !apiKey.isEmpty else {
-                // If search is empty, just show all documents without sorting
-                DispatchQueue.main.async {
+            guard !searchQuery.isEmpty else {
+                await MainActor.run {
                     self.searchEmbedding = nil
                     self.sortedResults = self.documents
                 }
@@ -209,10 +214,9 @@ extension Document {
             
             // Skip embedding generation if query is too short
             if searchQuery.count < 3 {
-                DispatchQueue.main.async {
-                    // For very short queries, do a simple contains match
+                await MainActor.run {
                     self.searchEmbedding = nil
-                    self.sortedResults = self.documents.filter { 
+                    self.sortedResults = self.documents.filter {
                         $0.name.lowercased().contains(self.searchQuery.lowercased()) ||
                         $0.text.lowercased().contains(self.searchQuery.lowercased())
                     }
@@ -221,10 +225,14 @@ extension Document {
             }
             
             do {
-                // Generate embeddings for semantic search
-                let embedding = try await embeddingService.generateEmbedding(for: searchQuery)
+                // First, enhance the search query using the text generation model
+                let enhancedQuery = try await embeddingService.enhanceSearchQuery(self.searchQuery)
+                print("Enhanced search query: \(enhancedQuery)")
                 
-                DispatchQueue.main.async {
+                // Generate embeddings for the enhanced query
+                let embedding = try await embeddingService.generateEmbedding(for: enhancedQuery)
+                
+                await MainActor.run {
                     self.searchEmbedding = embedding
                     self.updateSortedResults()
                 }
@@ -232,9 +240,9 @@ extension Document {
                 print("Error generating search embedding: \(error)")
                 
                 // Fall back to simple text search on error
-                DispatchQueue.main.async {
+                await MainActor.run {
                     self.searchEmbedding = nil
-                    self.sortedResults = self.documents.filter { 
+                    self.sortedResults = self.documents.filter {
                         $0.name.lowercased().contains(self.searchQuery.lowercased()) ||
                         $0.text.lowercased().contains(self.searchQuery.lowercased())
                     }
@@ -257,4 +265,4 @@ extension Document {
             }
         }
     }
-} 
+}
